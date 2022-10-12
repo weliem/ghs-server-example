@@ -127,9 +127,9 @@ public class GenericHealthService extends BaseService {
                 if (i==1) {
                     packet = mergeArrays(new byte[] {0x01}, segment);
                 } else if (i==numberOfSegments) {
-                    packet = mergeArrays(new byte[] {0x02}, segment);
+                    packet = mergeArrays(new byte[] {(byte) ((i << 2) + 2)}, segment);
                 } else {
-                    packet = mergeArrays(new byte[] {(byte) i}, segment);
+                    packet = mergeArrays(new byte[] {(byte) (i << 2)}, segment);
                 }
                 Timber.d("notifying observation <%s>", bytes2String(packet));
                 notifyCharacteristicChanged(packet, liveObservation);
