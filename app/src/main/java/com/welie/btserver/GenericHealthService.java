@@ -117,16 +117,16 @@ public class GenericHealthService extends BaseService {
             int numberOfSegments = (int) Math.ceil((double) observation.length / (minMTU - 4));
             int observationIndex = 0;
             int observationRemaining = observation.length;
-            for (int i = 1 ; i<=numberOfSegments; i++) {
+            for (int i = 0 ; i<numberOfSegments; i++) {
                 int segmentsize = min(minMTU-4, observationRemaining);
                 byte[] segment = new byte[segmentsize];
                 System.arraycopy(observation, observationIndex, segment, 0, segmentsize);
                 observationRemaining -= segmentsize;
                 observationIndex += segmentsize;
 
-                if (i==1) {
+                if (i==0) {
                     packet = mergeArrays(new byte[] {0x01}, segment);
-                } else if (i==numberOfSegments) {
+                } else if (i==numberOfSegments - 1) {
                     packet = mergeArrays(new byte[] {(byte) ((i << 2) + 2)}, segment);
                 } else {
                     packet = mergeArrays(new byte[] {(byte) (i << 2)}, segment);
@@ -145,7 +145,7 @@ public class GenericHealthService extends BaseService {
         long seconds_since_unix_epoch = calendar.getTime().getTime() / 1000;
         long seconds_since_ets_epoch = seconds_since_unix_epoch - elapsed_time_epoch;
 
-        parser.setIntValue(22, FORMAT_UINT8);  // Flags
+        parser.setIntValue(0x22, FORMAT_UINT8);  // Flags
         parser.setIntValue((int) (seconds_since_ets_epoch & 0xFF), FORMAT_UINT8);
         parser.setIntValue((int) ((seconds_since_ets_epoch >> 8) & 0xFF), FORMAT_UINT8);
         parser.setIntValue((int) ((seconds_since_ets_epoch >> 16) & 0xFF), FORMAT_UINT8);
