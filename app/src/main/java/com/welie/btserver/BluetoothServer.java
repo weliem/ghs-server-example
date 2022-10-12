@@ -101,6 +101,15 @@ class BluetoothServer {
         }
 
         @Override
+        public void onDescriptorWriteCompleted(@NonNull BluetoothCentral central, @NonNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
+            BluetoothGattCharacteristic characteristic = Objects.requireNonNull(descriptor.getCharacteristic(), "Descriptor has no Characteristic");
+            Service serviceImplementation = serviceImplementations.get(characteristic.getService());
+            if (serviceImplementation != null) {
+                serviceImplementation.onDescriptorWriteCompleted(central, descriptor, value);
+            }
+        }
+
+        @Override
         public void onNotifyingEnabled(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
             Service serviceImplementation = serviceImplementations.get(characteristic.getService());
             if (serviceImplementation != null) {
@@ -197,19 +206,17 @@ class BluetoothServer {
         }
 
         // Set the adapter name as this is used when advertising
-        bluetoothAdapter.setName(Build.MODEL);
+        bluetoothAdapter.setName("PHILIPS POX22");
 
         this.peripheralManager = new BluetoothPeripheralManager(context, bluetoothManager, peripheralManagerCallback);
         this.peripheralManager.removeAllServices();
 
         DeviceInformationService dis = new DeviceInformationService(peripheralManager);
-        CurrentTimeService cts = new CurrentTimeService(peripheralManager);
-        HeartRateService hrs = new HeartRateService(peripheralManager);
+        GenericHealthService ghs = new GenericHealthService(peripheralManager);
         serviceImplementations.put(dis.getService(), dis);
-        serviceImplementations.put(cts.getService(), cts);
-        serviceImplementations.put(hrs.getService(), hrs);
+        serviceImplementations.put(ghs.getService(), ghs);
 
         setupServices();
-        startAdvertising(hrs.getService().getUuid());
+        startAdvertising(ghs.getService().getUuid());
     }
 }

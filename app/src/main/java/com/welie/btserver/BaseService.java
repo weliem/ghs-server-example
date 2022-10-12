@@ -81,6 +81,9 @@ class BaseService implements Service {
     }
 
     @Override
+    public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {}
+
+    @Override
     public void onNotifyingEnabled(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
 
     }
