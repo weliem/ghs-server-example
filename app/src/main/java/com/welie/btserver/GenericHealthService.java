@@ -18,6 +18,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -46,6 +47,9 @@ public class GenericHealthService extends BaseService {
     private static final UUID GHS_SCHEDULE_CHANGED_CHAR_UUID = UUID.fromString("00007f3f-0000-1000-8000-00805f9b34fb");
     private static final UUID GHS_SCHEDULE_DESCRIPTOR_UUID = UUID.fromString("00007f35-0000-1000-8000-00805f9b34fb");
 
+    public static final String MEASUREMENT_PULSE_OX = "ghs.observation.pulseox";
+    public static final String MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS = "ghs.observation.pulseox.extra.value";
+
     private @NotNull
     final BluetoothGattService service = new BluetoothGattService(GHS_SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
@@ -67,6 +71,7 @@ public class GenericHealthService extends BaseService {
     private int measurement_duration = 1;
     private @NotNull
     final Runnable notifyRunnable = this::notifyLiveObservation;
+    private int segmentCounter = 0;
 
     GenericHealthService(@NotNull BluetoothPeripheralManager peripheralManager) {
         super(peripheralManager);
@@ -103,13 +108,21 @@ public class GenericHealthService extends BaseService {
         return new ReadResponse(GattStatus.REQUEST_NOT_SUPPORTED, null);
     }
 
+    private void broadcastValue(float spo2Value) {
+        Intent intent = new Intent(MEASUREMENT_PULSE_OX);
+        intent.putExtra(MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS, spo2Value);
+        context.sendBroadcast(intent);
+    }
+
     private void notifyLiveObservation() {
         int minMTU = getMinMTU();
 
-        byte[] observation = createObservation(96.1f);
+        float spo2Value = (float) (95.0f + (Math.random() * 2));
+        broadcastValue(spo2Value);
+        byte[] observation = createObservation(spo2Value);
         byte[] packet;
         if (minMTU - 4 >= observation.length ) {
-            packet = mergeArrays(new byte[] {0x03}, observation);
+            packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 3)}, observation);
             Timber.d("notifying observation <%s>", bytes2String(observation));
             notifyCharacteristicChanged(packet, liveObservation);
         } else {
@@ -124,14 +137,17 @@ public class GenericHealthService extends BaseService {
                 observationIndex += segmentsize;
 
                 if (i==0) {
-                    packet = mergeArrays(new byte[] {0x01}, segment);
+                    packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 1)}, segment);
                 } else if (i==numberOfSegments - 1) {
-                    packet = mergeArrays(new byte[] {(byte) ((i << 2) + 2)}, segment);
+                    packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 2)}, segment);
                 } else {
-                    packet = mergeArrays(new byte[] {(byte) (i << 2)}, segment);
+                    packet = mergeArrays(new byte[] {(byte) (segmentCounter << 2)}, segment);
                 }
                 Timber.d("notifying observation <%s>", bytes2String(packet));
                 notifyCharacteristicChanged(packet, liveObservation);
+
+                segmentCounter++;
+                if (segmentCounter > 63) segmentCounter = 0;
             }
         }
         handler.postDelayed(notifyRunnable, (long) (interval * 1000L));

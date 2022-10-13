@@ -35,10 +35,12 @@ class BluetoothServer {
     private static BluetoothServer instance = null;
     private BluetoothPeripheralManager peripheralManager;
     private final HashMap<BluetoothGattService, Service> serviceImplementations = new HashMap<>();
+    private Context context;
 
     public static synchronized BluetoothServer getInstance(Context context) {
         if (instance == null) {
             instance = new BluetoothServer(context.getApplicationContext());
+            instance.context = context;
         }
         return instance;
     }
@@ -215,6 +217,7 @@ class BluetoothServer {
         GenericHealthService ghs = new GenericHealthService(peripheralManager);
         serviceImplementations.put(dis.getService(), dis);
         serviceImplementations.put(ghs.getService(), ghs);
+        ghs.context = context;
 
         setupServices();
         startAdvertising(ghs.getService().getUuid());

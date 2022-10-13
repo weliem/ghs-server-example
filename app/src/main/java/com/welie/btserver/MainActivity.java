@@ -1,21 +1,29 @@
 package com.welie.btserver;
 
+import static com.welie.btserver.GenericHealthService.MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.widget.TextView;
+
+import com.welie.blessed.BluetoothPeripheral;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import timber.log.Timber;
 
@@ -23,11 +31,15 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int ACCESS_LOCATION_REQUEST = 2;
+    private TextView measurementValue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        measurementValue = (TextView) findViewById(R.id.spo2Value);
+
+        registerReceiver(pulseOxDataReceiver, new IntentFilter( GenericHealthService.MEASUREMENT_PULSE_OX ));
     }
 
     @Override
@@ -161,6 +173,14 @@ public class MainActivity extends AppCompatActivity {
                     .show();
         }
     }
+
+    private final BroadcastReceiver pulseOxDataReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            float value = intent.getFloatExtra(MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS, 0.0f);
+             measurementValue.setText(String.format(Locale.ENGLISH, "%.1f%%", value));
+        }
+    };
 
     private void initBluetoothHandler()
     {

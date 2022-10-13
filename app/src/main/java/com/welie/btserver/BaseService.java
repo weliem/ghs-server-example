@@ -3,6 +3,7 @@ package com.welie.btserver;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
+import android.content.Context;
 
 import com.welie.blessed.BluetoothCentral;
 import com.welie.blessed.BluetoothPeripheralManager;
@@ -26,6 +27,7 @@ class BaseService implements Service {
 
     @NotNull
     protected final BluetoothPeripheralManager peripheralManager;
+    public Context context;
 
     BaseService(@NotNull BluetoothPeripheralManager peripheralManager) {
         this.peripheralManager = Objects.requireNonNull(peripheralManager);
