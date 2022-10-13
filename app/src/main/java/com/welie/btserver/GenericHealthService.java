@@ -104,8 +104,7 @@ public class GenericHealthService extends BaseService {
     }
 
     private void notifyLiveObservation() {
-        Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
-        int minMTU = allCentrals.stream().map(BluetoothCentral::getCurrentMtu).min(Integer::compare).get();
+        int minMTU = getMinMTU();
 
         byte[] observation = createObservation(96.1f);
         byte[] packet;
@@ -139,7 +138,7 @@ public class GenericHealthService extends BaseService {
     }
 
     private void addElapsedTime(@NotNull BluetoothBytesParser parser) {
-        long elapsed_time_epoch = 946681200;
+        long elapsed_time_epoch = 946684800;
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
         long seconds_since_unix_epoch = calendar.getTime().getTime() / 1000;
@@ -243,5 +242,10 @@ public class GenericHealthService extends BaseService {
     @Override
     public String getServiceName() {
         return "Generic Health Service";
+    }
+
+    private int getMinMTU() {
+        Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
+        return allCentrals.stream().map(BluetoothCentral::getCurrentMtu).min(Integer::compare).get();
     }
 }
