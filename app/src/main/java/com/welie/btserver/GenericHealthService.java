@@ -15,6 +15,7 @@ import static com.welie.blessed.BluetoothBytesParser.mergeArrays;
 import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
@@ -27,12 +28,14 @@ import androidx.annotation.NonNull;
 import com.welie.blessed.BluetoothBytesParser;
 import com.welie.blessed.BluetoothCentral;
 import com.welie.blessed.BluetoothPeripheralManager;
+import com.welie.blessed.BondState;
 import com.welie.blessed.GattStatus;
 import com.welie.blessed.ReadResponse;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
@@ -62,16 +65,14 @@ public class GenericHealthService extends BaseService {
     private @NotNull
     final Handler handler = new Handler(Looper.getMainLooper());
     private final int MDC_PULS_OXIM_SAT_O2 = 150456;
-    private final int MDC_DIM_PER_CENT = 0x0220;
-    private final int NUMERIC_OBSERVATION = 0;
     private boolean isScheduleChangeCharNotifying = false;
     private volatile byte[] scheduleValue;
     private float interval = 1.0f;
     private final byte[] featureValue;
-    private int measurement_duration = 1;
     private @NotNull
     final Runnable notifyRunnable = this::notifyLiveObservation;
     private int segmentCounter = 0;
+    private final Set<String> observationCharNotifyingToCentrals = new HashSet<>();
 
     GenericHealthService(@NotNull BluetoothPeripheralManager peripheralManager) {
         super(peripheralManager);
@@ -100,9 +101,24 @@ public class GenericHealthService extends BaseService {
         service.addCharacteristic(liveObservation);
     }
 
+    @SuppressLint("MissingPermission")
+    @Override
+    public void onCentralConnected(@NotNull BluetoothCentral central) {
+        if (central.getBondState() == BondState.BONDED && observationCharNotifyingToCentrals.contains(central.getAddress())) {
+            notifyLiveObservation();
+        }
+    }
+
+    @Override
+    public void onCentralDisconnected(@NotNull BluetoothCentral central) {
+        if (central.getBondState() != BondState.BONDED) {
+            observationCharNotifyingToCentrals.remove(central.getAddress());
+        }
+    }
+
     @Override
     public ReadResponse onCharacteristicRead(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
-        if (characteristic.getUuid()==GHS_FEATURES_CHAR_UUID) {
+        if (characteristic.getUuid() == GHS_FEATURES_CHAR_UUID) {
             return new ReadResponse(GattStatus.SUCCESS, featureValue);
         }
         return new ReadResponse(GattStatus.REQUEST_NOT_SUPPORTED, null);
@@ -121,36 +137,46 @@ public class GenericHealthService extends BaseService {
         broadcastValue(spo2Value);
         byte[] observation = createObservation(spo2Value);
         byte[] packet;
-        if (minMTU - 4 >= observation.length ) {
-            packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 3)}, observation);
+        if (minMTU - 4 >= observation.length) {
+            packet = mergeArrays(new byte[]{(byte) ((segmentCounter << 2) + 3)}, observation);
             Timber.d("notifying observation <%s>", bytes2String(observation));
             notifyCharacteristicChanged(packet, liveObservation);
         } else {
             int numberOfSegments = (int) Math.ceil((double) observation.length / (minMTU - 4));
             int observationIndex = 0;
             int observationRemaining = observation.length;
-            for (int i = 0 ; i<numberOfSegments; i++) {
-                int segmentsize = min(minMTU-4, observationRemaining);
+            for (int i = 0; i < numberOfSegments; i++) {
+                int segmentsize = min(minMTU - 4, observationRemaining);
                 byte[] segment = new byte[segmentsize];
                 System.arraycopy(observation, observationIndex, segment, 0, segmentsize);
                 observationRemaining -= segmentsize;
                 observationIndex += segmentsize;
 
-                if (i==0) {
-                    packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 1)}, segment);
-                } else if (i==numberOfSegments - 1) {
-                    packet = mergeArrays(new byte[] {(byte) ((segmentCounter << 2) + 2)}, segment);
+                if (i == 0) {
+                    packet = mergeArrays(new byte[]{(byte) ((segmentCounter << 2) + 1)}, segment);
+                } else if (i == numberOfSegments - 1) {
+                    packet = mergeArrays(new byte[]{(byte) ((segmentCounter << 2) + 2)}, segment);
                 } else {
-                    packet = mergeArrays(new byte[] {(byte) (segmentCounter << 2)}, segment);
+                    packet = mergeArrays(new byte[]{(byte) (segmentCounter << 2)}, segment);
                 }
                 Timber.d("notifying observation <%s>", bytes2String(packet));
-                notifyCharacteristicChanged(packet, liveObservation);
+                //notifyCharacteristicChanged(packet, liveObservation);
+                notifyPacketToNotifyingCentrals(packet, liveObservation);
 
                 segmentCounter++;
                 if (segmentCounter > 63) segmentCounter = 0;
             }
         }
         handler.postDelayed(notifyRunnable, (long) (interval * 1000L));
+    }
+
+    private void notifyPacketToNotifyingCentrals(byte[] packet, BluetoothGattCharacteristic characteristic) {
+        Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
+        for (BluetoothCentral connectedCentral : allCentrals) {
+            if (observationCharNotifyingToCentrals.contains(connectedCentral.getAddress())) {
+                peripheralManager.notifyCharacteristicChanged(packet, connectedCentral, characteristic);
+            }
+        }
     }
 
     private void addElapsedTime(@NotNull BluetoothBytesParser parser) {
@@ -173,12 +199,15 @@ public class GenericHealthService extends BaseService {
 
     private byte[] createObservation(float spo2Value) {
         BluetoothBytesParser parser = new BluetoothBytesParser();
+        int NUMERIC_OBSERVATION = 0;
         parser.setIntValue(NUMERIC_OBSERVATION, BluetoothGattCharacteristic.FORMAT_UINT8);
         parser.setIntValue(25, FORMAT_UINT16);  // Length
         parser.setIntValue(0x07, FORMAT_UINT16);  // Flags
         parser.setIntValue(MDC_PULS_OXIM_SAT_O2, FORMAT_UINT32);
         addElapsedTime(parser);
+        int measurement_duration = 1;
         parser.setFloatValue(measurement_duration, 1);
+        int MDC_DIM_PER_CENT = 0x0220;
         parser.setIntValue(MDC_DIM_PER_CENT, FORMAT_UINT16);
         parser.setFloatValue(spo2Value, 1);
         return parser.getValue().clone();
@@ -189,6 +218,7 @@ public class GenericHealthService extends BaseService {
         if (characteristic.getUuid().equals(GHS_SCHEDULE_CHANGED_CHAR_UUID)) {
             isScheduleChangeCharNotifying = true;
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
+            observationCharNotifyingToCentrals.add(central.getAddress());
             notifyLiveObservation();
         }
     }
@@ -198,6 +228,7 @@ public class GenericHealthService extends BaseService {
         if (characteristic.getUuid().equals(GHS_SCHEDULE_CHANGED_CHAR_UUID)) {
             isScheduleChangeCharNotifying = false;
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
+            observationCharNotifyingToCentrals.remove(central.getAddress());
             handler.removeCallbacks(notifyRunnable);
         }
     }
@@ -206,7 +237,7 @@ public class GenericHealthService extends BaseService {
     public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
         if (isScheduleChangeCharNotifying) {
             Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
-            for (BluetoothCentral connectedCentral: allCentrals) {
+            for (BluetoothCentral connectedCentral : allCentrals) {
                 if (!(connectedCentral.getAddress().equals(central.getAddress()))) {
                     peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
                 }
@@ -262,6 +293,7 @@ public class GenericHealthService extends BaseService {
 
     private int getMinMTU() {
         Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
+        if (allCentrals.isEmpty()) return 23;
         return allCentrals.stream().map(BluetoothCentral::getCurrentMtu).min(Integer::compare).get();
     }
 }
