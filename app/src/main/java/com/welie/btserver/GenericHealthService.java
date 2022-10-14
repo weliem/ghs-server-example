@@ -114,6 +114,10 @@ public class GenericHealthService extends BaseService {
         if (central.getBondState() != BondState.BONDED) {
             observationCharNotifyingToCentrals.remove(central.getAddress());
         }
+
+        if (noCentralsConnected()) {
+            handler.removeCallbacks(notifyRunnable);
+        }
     }
 
     @Override
