@@ -163,9 +163,7 @@ public class GenericHealthService extends BaseService {
                 } else {
                     packet = mergeArrays(new byte[]{(byte) (segmentCounter << 2)}, segment);
                 }
-                Timber.d("notifying observation <%s>", bytes2String(packet));
-                //notifyCharacteristicChanged(packet, liveObservation);
-                notifyPacketToNotifyingCentrals(packet, liveObservation);
+                notifyObservationToCentrals(packet);
 
                 segmentCounter++;
                 if (segmentCounter > 63) segmentCounter = 0;
@@ -174,11 +172,12 @@ public class GenericHealthService extends BaseService {
         handler.postDelayed(notifyRunnable, (long) (interval * 1000L));
     }
 
-    private void notifyPacketToNotifyingCentrals(byte[] packet, BluetoothGattCharacteristic characteristic) {
+    private void notifyObservationToCentrals(byte[] packet) {
+        Timber.d("notifying observation <%s>", bytes2String(packet));
         Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
         for (BluetoothCentral connectedCentral : allCentrals) {
             if (observationCharNotifyingToCentrals.contains(connectedCentral.getAddress())) {
-                peripheralManager.notifyCharacteristicChanged(packet, connectedCentral, characteristic);
+                peripheralManager.notifyCharacteristicChanged(packet, connectedCentral, liveObservation);
             }
         }
     }
