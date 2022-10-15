@@ -8,6 +8,7 @@ import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_FLOAT;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT16;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT32;
+import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT48;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT8;
 import static com.welie.blessed.BluetoothBytesParser.bytes2String;
 import static com.welie.blessed.BluetoothBytesParser.mergeArrays;
@@ -190,12 +191,7 @@ public class GenericHealthService extends BaseService {
         long seconds_since_ets_epoch = seconds_since_unix_epoch - elapsed_time_epoch;
 
         parser.setIntValue(0x22, FORMAT_UINT8);  // Flags
-        parser.setIntValue((int) (seconds_since_ets_epoch & 0xFF), FORMAT_UINT8);
-        parser.setIntValue((int) ((seconds_since_ets_epoch >> 8) & 0xFF), FORMAT_UINT8);
-        parser.setIntValue((int) ((seconds_since_ets_epoch >> 16) & 0xFF), FORMAT_UINT8);
-        parser.setIntValue((int) ((seconds_since_ets_epoch >> 24) & 0xFF), FORMAT_UINT8);
-        parser.setIntValue((int) ((seconds_since_ets_epoch >> 32) & 0xFF), FORMAT_UINT8);
-        parser.setIntValue((int) ((seconds_since_ets_epoch >> 40) & 0xFF), FORMAT_UINT8);
+        parser.setLong(seconds_since_ets_epoch, FORMAT_UINT48);
         parser.setIntValue(0x06, FORMAT_UINT8);  // Cellular Network
         parser.setIntValue(0x00, FORMAT_UINT8);  // Tz/DST offset
     }
