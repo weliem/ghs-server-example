@@ -66,21 +66,22 @@ public class GenericHealthService extends BaseService {
     private @NotNull
     final Handler handler = new Handler(Looper.getMainLooper());
     private final int MDC_PULS_OXIM_SAT_O2 = 150456;
-    private boolean isScheduleChangeCharNotifying = false;
     private volatile byte[] scheduleValue;
     private float interval = 1.0f;
+    private float measurement_duration = 1.0f;
     private final byte[] featureValue;
     private @NotNull
     final Runnable notifyRunnable = this::notifyLiveObservation;
     private int segmentCounter = 0;
-    private final Set<String> observationCharNotifyingToCentrals = new HashSet<>();
+    private final Set<String> centralsWantingObsNotifications = new HashSet<>();
+    private final Set<String> centralsWantingScheduleNotifications = new HashSet<>();
 
     GenericHealthService(@NotNull BluetoothPeripheralManager peripheralManager) {
         super(peripheralManager);
 
         BluetoothBytesParser parser = new BluetoothBytesParser();
         parser.setIntValue(MDC_PULS_OXIM_SAT_O2, FORMAT_UINT32);
-        parser.setFloatValue(1.0f, 1);
+        parser.setFloatValue(measurement_duration, 1);
         parser.setFloatValue(interval, 1);
         scheduleValue = parser.getValue().clone();
 
@@ -105,7 +106,7 @@ public class GenericHealthService extends BaseService {
     @SuppressLint("MissingPermission")
     @Override
     public void onCentralConnected(@NotNull BluetoothCentral central) {
-        if (central.getBondState() == BondState.BONDED && observationCharNotifyingToCentrals.contains(central.getAddress())) {
+        if (central.getBondState() == BondState.BONDED && centralsWantingObsNotifications.contains(central.getAddress())) {
             notifyLiveObservation();
         }
     }
@@ -113,7 +114,8 @@ public class GenericHealthService extends BaseService {
     @Override
     public void onCentralDisconnected(@NotNull BluetoothCentral central) {
         if (central.getBondState() != BondState.BONDED) {
-            observationCharNotifyingToCentrals.remove(central.getAddress());
+            centralsWantingObsNotifications.remove(central.getAddress());
+            centralsWantingScheduleNotifications.remove(central.getAddress());
         }
 
         if (noCentralsConnected()) {
@@ -177,7 +179,7 @@ public class GenericHealthService extends BaseService {
         Timber.d("notifying observation <%s>", bytes2String(packet));
         Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
         for (BluetoothCentral connectedCentral : allCentrals) {
-            if (observationCharNotifyingToCentrals.contains(connectedCentral.getAddress())) {
+            if (centralsWantingObsNotifications.contains(connectedCentral.getAddress())) {
                 peripheralManager.notifyCharacteristicChanged(packet, connectedCentral, liveObservation);
             }
         }
@@ -204,8 +206,7 @@ public class GenericHealthService extends BaseService {
         parser.setIntValue(0x07, FORMAT_UINT16);  // Flags
         parser.setIntValue(MDC_PULS_OXIM_SAT_O2, FORMAT_UINT32);
         addElapsedTime(parser);
-        int measurement_duration = 1;
-        parser.setFloatValue(measurement_duration, 1);
+        parser.setFloatValue(measurement_duration, 1); // Measurement duration
         int MDC_DIM_PER_CENT = 0x0220;
         parser.setIntValue(MDC_DIM_PER_CENT, FORMAT_UINT16);
         parser.setFloatValue(spo2Value, 1);
@@ -215,31 +216,32 @@ public class GenericHealthService extends BaseService {
     @Override
     public void onNotifyingEnabled(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
         if (characteristic.getUuid().equals(GHS_SCHEDULE_CHANGED_CHAR_UUID)) {
-            isScheduleChangeCharNotifying = true;
+            centralsWantingScheduleNotifications.add(central.getAddress());
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
-            observationCharNotifyingToCentrals.add(central.getAddress());
-            notifyLiveObservation();
+            final boolean shouldStartNotifying = centralsWantingObsNotifications.isEmpty();
+            centralsWantingObsNotifications.add(central.getAddress());
+            if (shouldStartNotifying) notifyLiveObservation();
         }
     }
 
     @Override
     public void onNotifyingDisabled(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
         if (characteristic.getUuid().equals(GHS_SCHEDULE_CHANGED_CHAR_UUID)) {
-            isScheduleChangeCharNotifying = false;
+            centralsWantingScheduleNotifications.remove(central.getAddress());
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
-            observationCharNotifyingToCentrals.remove(central.getAddress());
-            handler.removeCallbacks(notifyRunnable);
+            centralsWantingObsNotifications.remove(central.getAddress());
+            if(centralsWantingObsNotifications.isEmpty()) {
+                handler.removeCallbacks(notifyRunnable);
+            }
         }
     }
 
     @Override
     public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
-        if (isScheduleChangeCharNotifying) {
-            Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
-            for (BluetoothCentral connectedCentral : allCentrals) {
-                if (!(connectedCentral.getAddress().equals(central.getAddress()))) {
-                    peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
-                }
+        for (String centralAddress : centralsWantingScheduleNotifications) {
+            if (!(centralAddress.equals(central.getAddress()))) {
+                BluetoothCentral connectedCentral = Objects.requireNonNull(peripheralManager.getCentral(centralAddress));
+                peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
             }
         }
     }
@@ -266,6 +268,7 @@ public class GenericHealthService extends BaseService {
         }
 
         scheduleValue = value;
+        measurement_duration = schedule_measurement_period;
         interval = schedule_update_interval;
         return GattStatus.SUCCESS;
     }
