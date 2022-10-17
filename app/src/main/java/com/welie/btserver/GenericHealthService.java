@@ -240,8 +240,12 @@ public class GenericHealthService extends BaseService {
     public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
         for (String centralAddress : centralsWantingScheduleNotifications) {
             if (!(centralAddress.equals(central.getAddress()))) {
-                BluetoothCentral connectedCentral = Objects.requireNonNull(peripheralManager.getCentral(centralAddress));
-                peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
+                BluetoothCentral connectedCentral = peripheralManager.getCentral(centralAddress);
+                if (connectedCentral == null) {
+                    Timber.e("could not find central with address %s", centralAddress);
+                } else {
+                    peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
+                }
             }
         }
     }
