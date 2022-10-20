@@ -115,8 +115,6 @@ public class GenericHealthService extends BaseService {
         }
     }
 
-
-
     @Override
     public void onCentralDisconnected(@NotNull BluetoothCentral central) {
         if (central.getBondState() != BondState.BONDED) {
@@ -249,7 +247,7 @@ public class GenericHealthService extends BaseService {
             centralsWantingScheduleNotifications.remove(central.getAddress());
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
             centralsWantingObsNotifications.remove(central.getAddress());
-            if(getConnectedCentralsWantingObservations().isEmpty()) {
+            if (getConnectedCentralsWantingObservations().isEmpty()) {
                 stopNotifyingLiveObservations();
             }
         }
@@ -317,7 +315,7 @@ public class GenericHealthService extends BaseService {
     }
 
     private Set<BluetoothCentral> getConnectedCentralsWantingObservations() {
-        return peripheralManager.getConnectedCentrals().stream().filter( central -> centralsWantingObsNotifications.contains(central.getAddress())).collect(Collectors.toSet());
+        return peripheralManager.getConnectedCentrals().stream().filter(central -> centralsWantingObsNotifications.contains(central.getAddress())).collect(Collectors.toSet());
     }
 
     private int getMinMTU() {
