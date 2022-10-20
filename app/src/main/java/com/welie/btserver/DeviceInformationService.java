@@ -21,6 +21,7 @@ class DeviceInformationService extends BaseService {
     private static final UUID DIS_SERVICE_UUID = UUID.fromString("0000180A-0000-1000-8000-00805f9b34fb");
     private static final UUID MANUFACTURER_NAME_CHARACTERISTIC_UUID = UUID.fromString("00002A29-0000-1000-8000-00805f9b34fb");
     private static final UUID MODEL_NUMBER_CHARACTERISTIC_UUID = UUID.fromString("00002A24-0000-1000-8000-00805f9b34fb");
+    private static final UUID SERIAL_NUMBER_CHARACTERISTIC_UUID = UUID.fromString("00002A25-0000-1000-8000-00805f9b34fb");
 
     private @NotNull final BluetoothGattService service = new BluetoothGattService(DIS_SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
@@ -32,6 +33,9 @@ class DeviceInformationService extends BaseService {
 
         BluetoothGattCharacteristic modelNumber = new BluetoothGattCharacteristic(MODEL_NUMBER_CHARACTERISTIC_UUID, PROPERTY_READ, PERMISSION_READ);
         service.addCharacteristic(modelNumber);
+
+        BluetoothGattCharacteristic serialNumber = new BluetoothGattCharacteristic(SERIAL_NUMBER_CHARACTERISTIC_UUID, PROPERTY_READ, PERMISSION_READ);
+        service.addCharacteristic(serialNumber);
     }
 
     @Override
@@ -40,6 +44,8 @@ class DeviceInformationService extends BaseService {
             return new ReadResponse(GattStatus.SUCCESS, Build.MANUFACTURER.getBytes());
         } else if (characteristic.getUuid().equals(MODEL_NUMBER_CHARACTERISTIC_UUID)) {
             return new ReadResponse(GattStatus.SUCCESS, Build.MODEL.getBytes());
+        }  else if (characteristic.getUuid().equals(SERIAL_NUMBER_CHARACTERISTIC_UUID)) {
+            return new ReadResponse(GattStatus.SUCCESS, "m1".getBytes());
         }
         return super.onCharacteristicRead(central, characteristic);
     }
