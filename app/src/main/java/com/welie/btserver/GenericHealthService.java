@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import timber.log.Timber;
 
@@ -72,6 +73,7 @@ public class GenericHealthService extends BaseService {
     private final byte[] featureValue;
     private @NotNull
     final Runnable notifyRunnable = this::notifyLiveObservation;
+    private boolean isNotifyingLiveObservations = false;
     private int segmentCounter = 0;
     private final Set<String> centralsWantingObsNotifications = new HashSet<>();
     private final Set<String> centralsWantingScheduleNotifications = new HashSet<>();
@@ -107,9 +109,13 @@ public class GenericHealthService extends BaseService {
     @Override
     public void onCentralConnected(@NotNull BluetoothCentral central) {
         if (central.getBondState() == BondState.BONDED && centralsWantingObsNotifications.contains(central.getAddress())) {
-            notifyLiveObservation();
+            if (!isNotifyingLiveObservations) {
+                startNotifyingLiveObservations();
+            }
         }
     }
+
+
 
     @Override
     public void onCentralDisconnected(@NotNull BluetoothCentral central) {
@@ -118,9 +124,21 @@ public class GenericHealthService extends BaseService {
             centralsWantingScheduleNotifications.remove(central.getAddress());
         }
 
-        if (noCentralsConnected()) {
-            handler.removeCallbacks(notifyRunnable);
+        if (getConnectedCentralsWantingObservations().isEmpty()) {
+            stopNotifyingLiveObservations();
         }
+    }
+
+    private void startNotifyingLiveObservations() {
+        Timber.d("starting sending live observations");
+        isNotifyingLiveObservations = true;
+        notifyLiveObservation();
+    }
+
+    private void stopNotifyingLiveObservations() {
+        Timber.d("stopping sending live observations");
+        handler.removeCallbacks(notifyRunnable);
+        isNotifyingLiveObservations = false;
     }
 
     @Override
@@ -218,9 +236,10 @@ public class GenericHealthService extends BaseService {
         if (characteristic.getUuid().equals(GHS_SCHEDULE_CHANGED_CHAR_UUID)) {
             centralsWantingScheduleNotifications.add(central.getAddress());
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
-            final boolean shouldStartNotifying = centralsWantingObsNotifications.isEmpty();
             centralsWantingObsNotifications.add(central.getAddress());
-            if (shouldStartNotifying) notifyLiveObservation();
+            if (!isNotifyingLiveObservations) {
+                startNotifyingLiveObservations();
+            }
         }
     }
 
@@ -230,8 +249,8 @@ public class GenericHealthService extends BaseService {
             centralsWantingScheduleNotifications.remove(central.getAddress());
         } else if (characteristic.getUuid().equals(OBSERVATION_CHAR_UUID)) {
             centralsWantingObsNotifications.remove(central.getAddress());
-            if(centralsWantingObsNotifications.isEmpty()) {
-                handler.removeCallbacks(notifyRunnable);
+            if(getConnectedCentralsWantingObservations().isEmpty()) {
+                stopNotifyingLiveObservations();
             }
         }
     }
@@ -295,6 +314,10 @@ public class GenericHealthService extends BaseService {
     @Override
     public String getServiceName() {
         return "Generic Health Service";
+    }
+
+    private Set<BluetoothCentral> getConnectedCentralsWantingObservations() {
+        return peripheralManager.getConnectedCentrals().stream().filter( central -> centralsWantingObsNotifications.contains(central.getAddress())).collect(Collectors.toSet());
     }
 
     private int getMinMTU() {
