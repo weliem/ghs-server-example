@@ -13,6 +13,7 @@ import com.welie.blessed.ReadResponse;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import static android.bluetooth.BluetoothGattDescriptor.PERMISSION_READ;
@@ -107,5 +108,11 @@ class BaseService implements Service {
     @Override
     public void onCentralDisconnected(@NotNull BluetoothCentral central) {
 
+    }
+
+    int getMinMTU() {
+        Set<BluetoothCentral> allCentrals = peripheralManager.getConnectedCentrals();
+        if (allCentrals.isEmpty()) return 23;
+        return allCentrals.stream().map(BluetoothCentral::getCurrentMtu).min(Integer::compare).get();
     }
 }
