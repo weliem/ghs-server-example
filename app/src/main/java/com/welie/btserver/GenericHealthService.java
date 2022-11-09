@@ -89,6 +89,7 @@ public class GenericHealthService extends BaseService {
     @SuppressLint("MissingPermission")
     @Override
     public void onCentralConnected(@NotNull BluetoothCentral central) {
+        Timber.d("Central bondstate is %s", central.getBondState());
         if (!getConnectedCentralsWantingObservations().isEmpty()) {
             if (!isNotifyingLiveObservations) {
                 startNotifyingLiveObservations();
