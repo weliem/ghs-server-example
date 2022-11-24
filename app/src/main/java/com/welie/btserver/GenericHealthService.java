@@ -194,7 +194,7 @@ public class GenericHealthService extends BaseService {
         int NUMERIC_OBSERVATION = 0;
 
         parser.setUInt8(NUMERIC_OBSERVATION);
-        parser.setUInt16(25);  // Length
+        parser.setUInt16(28);  // Length
         parser.setUInt16(0x07);  // Flags
         parser.setUInt32(MDC_PULS_OXIM_SAT_O2);
         addElapsedTime(parser);
@@ -213,6 +213,13 @@ public class GenericHealthService extends BaseService {
                 startNotifyingLiveObservations();
             }
         }
+//        if (central.getBondState() == BondState.BONDED && centralsWantingScheduleNotifications.contains(central.getAddress())) {
+//            notifyScheduleChanged(central);
+//        }
+    }
+
+    private void notifyScheduleChanged(@NotNull BluetoothCentral c) {
+        peripheralManager.notifyCharacteristicChanged(scheduleValue, c, scheduleChanged);
     }
 
     @Override
