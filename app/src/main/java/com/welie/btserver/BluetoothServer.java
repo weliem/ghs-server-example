@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import timber.log.Timber;
+import timber.log.Timber.DebugTree;
 
 @SuppressLint("MissingPermission")
 class BluetoothServer {
@@ -193,7 +194,7 @@ class BluetoothServer {
 
 
     BluetoothServer(Context context) {
-        Timber.plant(new Timber.DebugTree());
+        //Timber.plant(new Timber.DebugTree());
 
         final BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         if (bluetoothManager == null) {

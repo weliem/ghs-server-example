@@ -39,6 +39,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         measurementValue = (TextView) findViewById(R.id.spo2Value);
 
+        if (BuildConfig.DEBUG) {
+            Timber.plant(new Timber.DebugTree());
+        }
+
         registerReceiver(pulseOxDataReceiver, new IntentFilter( GenericHealthService.MEASUREMENT_PULSE_OX ));
     }
 

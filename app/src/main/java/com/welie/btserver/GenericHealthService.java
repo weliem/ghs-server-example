@@ -46,7 +46,7 @@ public class GenericHealthService extends BaseService {
     public static final String MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS = "ghs.observation.pulseox.extra.value";
 
     private @NotNull final BluetoothGattService service = new BluetoothGattService(GHS_SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY);
-    private @NotNull final BluetoothGattCharacteristic scheduleChanged = new BluetoothGattCharacteristic(GHS_SCHEDULE_CHANGED_CHAR_UUID, PROPERTY_NOTIFY, 0);
+    private @NotNull final BluetoothGattCharacteristic scheduleChanged = new BluetoothGattCharacteristic(GHS_SCHEDULE_CHANGED_CHAR_UUID, PROPERTY_INDICATE, 0);
     private @NotNull final BluetoothGattCharacteristic liveObservation = new BluetoothGattCharacteristic(OBSERVATION_CHAR_UUID, PROPERTY_NOTIFY, 0);
 
     private @NotNull final Handler handler = new Handler(Looper.getMainLooper());
@@ -233,15 +233,18 @@ public class GenericHealthService extends BaseService {
 
     @Override
     public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
+        Timber.i("Indicating schedule changes");
         for (BluetoothCentral connectedCentral : getConnectedCentralsWantingScheduleUpdates()) {
             if (!(connectedCentral.equals(central))) {
                 peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
+                Timber.i("Indicating schedule changed to " + connectedCentral.getName());
             }
         }
     }
 
     @Override
     public GattStatus onDescriptorWrite(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, byte[] value) {
+        Timber.i("Schedule is being changed.");
         if (value.length != 12) return GattStatus.VALUE_OUT_OF_RANGE;
 
         BluetoothBytesParser parser = new BluetoothBytesParser(value, 0, LITTLE_ENDIAN);
@@ -293,7 +296,7 @@ public class GenericHealthService extends BaseService {
     }
 
     private Set<BluetoothCentral> getConnectedCentralsWantingScheduleUpdates() {
-        final Set<BluetoothCentral> centralsWantingObsNotifications = peripheralManager.getCentralsWantingNotifications(scheduleChanged);
-        return peripheralManager.getConnectedCentrals().stream().filter(centralsWantingObsNotifications::contains).collect(Collectors.toSet());
+        final Set<BluetoothCentral> centralsWantingObsIndications = peripheralManager.getCentralsWantingIndications(scheduleChanged);
+        return peripheralManager.getConnectedCentrals().stream().filter(centralsWantingObsIndications::contains).collect(Collectors.toSet());
     }
 }
