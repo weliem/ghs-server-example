@@ -171,7 +171,6 @@ class BluetoothServer {
 
     public void startAdvertising(UUID serviceUUID) {
         BluetoothBytesParser parser = new BluetoothBytesParser(ByteOrder.LITTLE_ENDIAN);
-        parser.setUInt16(0x7f44); // 16 bit service UUID
         parser.setUInt8(1); // Number of specializations
         parser.setUInt32(MDC_PULS_OXIM_SAT_O2); // Specialization
         parser.setUInt8(1); // User Index Count
