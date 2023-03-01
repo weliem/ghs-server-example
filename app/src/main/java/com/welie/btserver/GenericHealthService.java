@@ -50,7 +50,7 @@ public class GenericHealthService extends BaseService {
     private @NotNull final BluetoothGattCharacteristic liveObservation = new BluetoothGattCharacteristic(OBSERVATION_CHAR_UUID, PROPERTY_NOTIFY, 0);
 
     private @NotNull final Handler handler = new Handler(Looper.getMainLooper());
-    private final int MDC_PULS_OXIM_SAT_O2 = 150456;
+    public static final int MDC_PULS_OXIM_SAT_O2 = 150456;
     private volatile byte[] scheduleValue;
     private float interval = 1.0f;
     private float measurement_duration = 1.0f;

@@ -1,5 +1,7 @@
 package com.welie.btserver;
 
+import static com.welie.btserver.GenericHealthService.MDC_PULS_OXIM_SAT_O2;
+
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -15,6 +17,7 @@ import android.os.ParcelUuid;
 import androidx.annotation.NonNull;
 
 import com.welie.blessed.AdvertiseError;
+import com.welie.blessed.BluetoothBytesParser;
 import com.welie.blessed.BluetoothCentral;
 import com.welie.blessed.BluetoothPeripheralManager;
 import com.welie.blessed.BluetoothPeripheralManagerCallback;
@@ -23,6 +26,7 @@ import com.welie.blessed.ReadResponse;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.UUID;
@@ -167,6 +171,12 @@ class BluetoothServer {
     };
 
     public void startAdvertising(UUID serviceUUID) {
+        BluetoothBytesParser parser = new BluetoothBytesParser(ByteOrder.LITTLE_ENDIAN);
+        parser.setUInt8(1); // Number of specializations
+        parser.setUInt32(MDC_PULS_OXIM_SAT_O2); // Specialization
+        parser.setUInt8(1); // User Index Count
+        parser.setUInt8(1); // User Indices
+
         AdvertiseSettings advertiseSettings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setConnectable(true)
@@ -175,8 +185,8 @@ class BluetoothServer {
                 .build();
 
         AdvertiseData advertiseData = new AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(true)
                 .addServiceUuid(new ParcelUuid(serviceUUID))
+                .addServiceData(new ParcelUuid(serviceUUID), parser.getValue())
                 .build();
 
         AdvertiseData scanResponse = new AdvertiseData.Builder()
@@ -216,9 +226,12 @@ class BluetoothServer {
 
         DeviceInformationService dis = new DeviceInformationService(peripheralManager);
         GenericHealthService ghs = new GenericHealthService(peripheralManager);
+        UserDataService uds = new UserDataService(peripheralManager);
+        ghs.context = context;
+
         serviceImplementations.put(dis.getService(), dis);
         serviceImplementations.put(ghs.getService(), ghs);
-        ghs.context = context;
+        serviceImplementations.put(uds.getService(), uds);
 
         setupServices();
         startAdvertising(ghs.getService().getUuid());
