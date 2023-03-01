@@ -1,5 +1,6 @@
 package com.welie.btserver;
 
+import static com.welie.btserver.GenericHealthService.MDC_DEV_SPEC_PROFILE_PULS_OXIM;
 import static com.welie.btserver.GenericHealthService.MDC_PULS_OXIM_SAT_O2;
 
 import android.annotation.SuppressLint;
@@ -173,7 +174,7 @@ class BluetoothServer {
     public void startAdvertising(UUID serviceUUID) {
         BluetoothBytesParser parser = new BluetoothBytesParser(ByteOrder.LITTLE_ENDIAN);
         parser.setUInt8(1); // Number of specializations
-        parser.setUInt32(MDC_PULS_OXIM_SAT_O2); // Specialization
+        parser.setUInt16(MDC_DEV_SPEC_PROFILE_PULS_OXIM); // 16-bit specialization from partition 8
         parser.setUInt8(1); // User Index Count
         parser.setUInt8(1); // User Indices
 

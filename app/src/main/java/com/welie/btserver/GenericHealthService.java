@@ -41,6 +41,7 @@ public class GenericHealthService extends BaseService {
     private static final UUID GHS_FEATURES_CHAR_UUID = UUID.fromString("00007f41-0000-1000-8000-00805f9b34fb");
     private static final UUID GHS_SCHEDULE_CHANGED_CHAR_UUID = UUID.fromString("00007f3f-0000-1000-8000-00805f9b34fb");
     private static final UUID GHS_SCHEDULE_DESCRIPTOR_UUID = UUID.fromString("00007f35-0000-1000-8000-00805f9b34fb");
+    private static final UUID SECURITY_LEVELS_CHARACTERISTIC_UUID = UUID.fromString("00002BF5-0000-1000-8000-00805f9b34fb");
 
     public static final String MEASUREMENT_PULSE_OX = "ghs.observation.pulseox";
     public static final String MEASUREMENT_PULSE_OX_EXTRA_CONTINUOUS = "ghs.observation.pulseox.extra.value";
@@ -51,6 +52,7 @@ public class GenericHealthService extends BaseService {
 
     private @NotNull final Handler handler = new Handler(Looper.getMainLooper());
     public static final int MDC_PULS_OXIM_SAT_O2 = 150456;
+    public static final int MDC_DEV_SPEC_PROFILE_PULS_OXIM = 528388;
     private volatile byte[] scheduleValue;
     private float interval = 1.0f;
     private float measurement_duration = 1.0f;
@@ -71,10 +73,12 @@ public class GenericHealthService extends BaseService {
         BluetoothGattCharacteristic feature = new BluetoothGattCharacteristic(GHS_FEATURES_CHAR_UUID, PROPERTY_READ, PERMISSION_READ);
         BluetoothGattDescriptor scheduleDescriptor = new BluetoothGattDescriptor(GHS_SCHEDULE_DESCRIPTOR_UUID, PERMISSION_READ | PERMISSION_WRITE);
         feature.addDescriptor(scheduleDescriptor);
+        BluetoothGattCharacteristic securityLevels = new BluetoothGattCharacteristic(SECURITY_LEVELS_CHARACTERISTIC_UUID, PROPERTY_READ, PERMISSION_READ);
+        service.addCharacteristic(securityLevels);
 
         BluetoothBytesParser parser2 = new BluetoothBytesParser();
-        parser2.setUInt8(0);
-        parser2.setUInt8(1);
+        parser2.setUInt8(0); //flags - no device specializations field present
+        parser2.setUInt8(1); // 1 supported observation
         parser2.setUInt32(MDC_PULS_OXIM_SAT_O2);
         featureValue = parser2.getValue().clone();
         service.addCharacteristic(feature);
@@ -120,6 +124,8 @@ public class GenericHealthService extends BaseService {
     public ReadResponse onCharacteristicRead(@NotNull BluetoothCentral central, @NotNull BluetoothGattCharacteristic characteristic) {
         if (characteristic.getUuid() == GHS_FEATURES_CHAR_UUID) {
             return new ReadResponse(GattStatus.SUCCESS, featureValue);
+        } else if (characteristic.getUuid().equals(SECURITY_LEVELS_CHARACTERISTIC_UUID)) {
+            return new ReadResponse(GattStatus.SUCCESS, new byte[]{0x01, 0x03});
         }
         return new ReadResponse(GattStatus.REQUEST_NOT_SUPPORTED, null);
     }
