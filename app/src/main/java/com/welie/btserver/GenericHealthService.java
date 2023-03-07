@@ -241,10 +241,10 @@ public class GenericHealthService extends BaseService {
     public void onDescriptorWriteCompleted(@NotNull BluetoothCentral central, @NotNull BluetoothGattDescriptor descriptor, @NonNull byte[] value) {
         Timber.i("Indicating schedule changes");
         for (BluetoothCentral connectedCentral : getConnectedCentralsWantingScheduleUpdates()) {
-            if (!(connectedCentral.equals(central))) {
+            //if (!(connectedCentral.equals(central))) {
                 peripheralManager.notifyCharacteristicChanged(value, connectedCentral, scheduleChanged);
                 Timber.i("Indicating schedule changed to " + connectedCentral.getName());
-            }
+            //}
         }
     }
 
@@ -259,20 +259,24 @@ public class GenericHealthService extends BaseService {
         final float schedule_update_interval = parser.getFloat();
 
         if (mdc != MDC_PULS_OXIM_SAT_O2) {
+            Timber.i("Schedule change attempt with incorrect MDC code.");
             return GattStatus.VALUE_OUT_OF_RANGE;
         }
 
         if (schedule_measurement_period > 5 || schedule_measurement_period < 1) {
+            Timber.i("Schedule change attempt with measurement period outside [1..5].");
             return GattStatus.VALUE_OUT_OF_RANGE;
         }
 
         if (schedule_update_interval < schedule_measurement_period || schedule_update_interval > 10) {
+            Timber.i("Schedule change attempt with update interval outside [measurement-period .. 10].");
             return GattStatus.VALUE_OUT_OF_RANGE;
         }
 
         scheduleValue = value;
         measurement_duration = schedule_measurement_period;
         interval = schedule_update_interval;
+        Timber.i("Schedule change succeeded.");
         return GattStatus.SUCCESS;
     }
 
